@@ -1,0 +1,36 @@
+// =============================================================================
+// [CONSTRUCTOR]
+// =============================================================================
+
+#define macro CONSTRUCTOR() = takes(0) returns(0) {
+	0x20 dup1 codesize sub 0x80 // We take the codesize and align the values for codecopy                        // [0x80, codesize-0x20, 0x20] == [destOffset, offset, size]
+	codecopy // Copy the implementation address to memory                                                        // Memory: [0x80: implimentationAddress][]
+	__codesize(MAIN) dup1 0x20 add codesize sub 0x00 // Take the codesize, runtimecode offset and align the values          // [0x00, runtimeCodeStartOffset, runtimeCodeSize] == [destOffset, offset, size]
+	codecopy // We take everything from code and paste it into the start of memory                               // Memory: [0x00: runtimeCode, 0x80: implimentationAddress][]
+	0x00 mload // We load the first word of the runtime code into the stack as it contains the dummy address     // Memory: [0x00: runtimeCode, 0x80: implimentationAddress][first_32_bytes_of_runtimecode]
+	0x80 mload // We load the implimentation address into the stack                                              // Memory: [0x00: runtimeCode, 0x80: implimentationAddress][implimentationAddress, first_32_bytes_of_runtimecode]
+	0x18 shl // We shift the implimentation address to the left so it aloigns with the dummy address             // Memory: [0x00: runtimeCode, 0x80: implimentationAddress][0x000000000000000000implimenationAddress000000, first_32_bytes_of_runtimecode]
+	swap1 // We swap so the runtimecode is the at the highest stack position                                     // Memory: [0x00: runtimeCode, 0x80: implimentationAddress][first_32_bytes_of_runtimecode, 0x000000000000000000implimenationAddress000000]
+	0xFFFFFFFFFFFFFFFFFF0000000000000000000000000000000000000000FFFFFF and // We terminate the dummy address     // Memory: [0x00: runtimeCode, 0x80: implimentationAddress][runtimecode0000000000000000000000000000000000000000runtiimecode, 0x000000000000000000implimenationAddress000000]
+	or // We combine both of the words to make the runtime code with the implimentation address                  // Memory: [0x00: runtimeCode, 0x80: implimentationAddress][runtimeCodeWithImplimentationAddress]
+	0x00 mstore // We store the runtime code with the implimentstion address in memory                           // Memory: [0x00: runtimeCodeWithImplimentationAddress, 0x80: implimentationAddress][runtimeCodeWithImplimentationAddress] => []
+	__codesize(MAIN) 0x00 return // We return the codesize and the offset of the runtime code
+}
+
+// =============================================================================
+// [MAIN DISPATCHER]
+// =============================================================================
+
+#define macro MAIN() = takes(0) returns(0) {
+	calldatasize 0x00 0x00 // We take the calldata size and align the values for calldatacopy                    // [0x00, 0x00, calldatasize] == [destOffset, offset, size]
+	calldatacopy // We take everything from calldata and paste it into the start of memory                       // Memory: [0x00: calldata][]
+	0x00 0x00 calldatasize 0x00 0xDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF gas // We align args for delegatecall // Memory: [0x00: calldata][gas, dummyAddress, 0x00, calldatasize, 0x00, 0x00]
+	delegatecall // We call the function in the target contract with the calldata and args from memory           // [gas, dummyAddress, 0x00, calldatasize, 0x00, 0x00] => [bool_success]
+	returndatasize 0x00 0x00 // We take the returndata size and align the values for returndatacopy              // [0x00, 0x00, returndatasize, bool_success] == [destOffset, offset, size]
+	returndatacopy // We take everything from returndata and paste it into the start of memory                   // Memory: [0x00: returndata][bool_success]
+	iszero callFailed jumpi // If the call failed, we skip the rest of the function                              // Memory: [0x00: returndata][]
+	returndatasize 0x00 return // If the call succeeded, we return the returndata from the call                  // Memory: [0x00: returndata][]
+
+	callFailed:
+		returndatasize 0x00 revert // We revert the transaction
+}
