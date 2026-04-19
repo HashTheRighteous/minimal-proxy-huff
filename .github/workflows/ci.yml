@@ -18,8 +18,8 @@ jobs:
 
       - name: Install Huff
         run: |
-          curl -L https://raw.githubusercontent.com/huff-language/huff-installer/main/install.sh | bash
-          echo "$HOME/.huff/bin" >> $GITHUB_PATH
+          cargo install --git https://github.com/huff-language/huff-rs --rev 1f7988a --locked
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Install dependencies
         run: forge install
