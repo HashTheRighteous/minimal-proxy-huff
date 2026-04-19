@@ -17,9 +17,9 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Install Huff
-        run: |
-          cargo install --git https://github.com/huff-language/huff-rs --rev 1f7988a --locked
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        uses: huff-language/huff-toolchain@v3
+        with:
+          version: nightly
 
       - name: Install dependencies
         run: forge install
